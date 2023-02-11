@@ -1518,7 +1518,7 @@ def get_url_to_report(name, report_type=None, doctype=None):
 
 def get_url_to_report_with_filters(name, filters, report_type=None, doctype=None):
 	if report_type == "Report Builder":
-		return get_url(uri="/app/{0}/view/report?{1}".format(quoted(doctype), filters))
+		return get_url(uri="/app/{0}/view/report?{1}".format(quoted(slug(doctype)), filters))
 	else:
 		return get_url(uri="/app/query-report/{0}?{1}".format(quoted(name), filters))
 
@@ -1732,7 +1732,7 @@ def expand_relative_urls(html):
 	def _expand_relative_urls(match):
 		to_expand = list(match.groups())
 
-		if not to_expand[2].startswith("mailto") and not to_expand[2].startswith("data:"):
+		if not to_expand[2].startswith(("mailto", "data:", "tel:")):
 			if not to_expand[2].startswith("/"):
 				to_expand[2] = "/" + to_expand[2]
 			to_expand.insert(2, url)

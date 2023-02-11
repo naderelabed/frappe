@@ -29,6 +29,7 @@ from six.moves.urllib.parse import quote, unquote
 
 import frappe
 from frappe import _, conf, safe_decode
+from frappe.database.schema import SPECIAL_CHAR_PATTERN
 from frappe.model.document import Document
 from frappe.utils import (
 	call_hook_method,
@@ -136,9 +137,20 @@ class File(Document):
 		if self.is_folder:
 			self.file_url = ""
 		else:
+			self.validate_attachment_references()
 			self.validate_url()
 
 		self.file_size = frappe.form_dict.file_size or self.file_size
+
+	def validate_attachment_references(self):
+		if not self.attached_to_doctype:
+			return
+
+		if not self.attached_to_name or not isinstance(self.attached_to_name, (str, int)):
+			frappe.throw(_("Attached To Name must be a string or an integer"), frappe.ValidationError)
+
+		if self.attached_to_field and SPECIAL_CHAR_PATTERN.search(self.attached_to_field):
+			frappe.throw(_("The fieldname you've specified in Attached To Field is invalid"))
 
 	def validate_url(self):
 		if not self.file_url or self.file_url.startswith(("http://", "https://")):

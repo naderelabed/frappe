@@ -37,7 +37,7 @@ from frappe.model.document import Document
 from frappe.model.meta import Meta
 from frappe.modules import get_doc_path, make_boilerplate
 from frappe.modules.import_file import get_file_path
-from frappe.utils import cint, now
+from frappe.utils import cint, now, random_string
 
 
 class InvalidFieldNameError(frappe.ValidationError):
@@ -332,7 +332,7 @@ class DocType(Document):
 						elif d.fieldtype == "Column Break":
 							d.fieldname = d.fieldname + "_column"
 					else:
-						d.fieldname = d.fieldtype.lower().replace(" ", "_") + "_" + str(d.idx)
+						d.fieldname = d.fieldtype.lower().replace(" ", "_") + "_" + str(random_string(5))
 				else:
 					if d.fieldname in restricted:
 						frappe.throw(_("Fieldname {0} is restricted").format(d.fieldname), InvalidFieldNameError)
@@ -931,12 +931,13 @@ def validate_fields(meta):
 		validate_column_name(fieldname)
 
 	def check_invalid_fieldnames(docname, fieldname):
-		invalid_fields = ("doctype",)
-		if fieldname in invalid_fields:
+		if fieldname in Document._reserved_keywords:
 			frappe.throw(
-				_("{0}: Fieldname cannot be one of {1}").format(
-					docname, ", ".join([frappe.bold(d) for d in invalid_fields])
-				)
+				_("{0}: fieldname cannot be set to reserved keyword {1}").format(
+					frappe.bold(docname),
+					frappe.bold(fieldname),
+				),
+				title=_("Invalid Fieldname"),
 			)
 
 	def check_unique_fieldname(docname, fieldname):
@@ -999,7 +1000,7 @@ def validate_fields(meta):
 					d.options = options
 
 	def check_hidden_and_mandatory(docname, d):
-		if d.hidden and d.reqd and not d.default:
+		if d.hidden and d.reqd and not d.default and not frappe.flags.in_migrate:
 			frappe.throw(
 				_("{0}: Field {1} in row {2} cannot be hidden and mandatory without default").format(
 					docname, d.label, d.idx

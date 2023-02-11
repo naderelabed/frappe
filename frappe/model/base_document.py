@@ -41,7 +41,7 @@ def get_controller(doctype):
 		from frappe.utils.nestedset import NestedSet
 
 		module_name, custom = frappe.db.get_value(
-			"DocType", doctype, ("module", "custom"), cache=True
+			"DocType", doctype, ("module", "custom"), cache=not frappe.flags.in_migrate
 		) or ["Core", False]
 
 		if custom:
@@ -74,7 +74,7 @@ def get_controller(doctype):
 				raise ImportError(doctype)
 		return _class
 
-	if frappe.local.dev_server:
+	if frappe.local.dev_server or frappe.flags.in_migrate:
 		return _get_controller()
 
 	site_controllers = frappe.controllers.setdefault(frappe.local.site, {})
@@ -85,7 +85,18 @@ def get_controller(doctype):
 
 
 class BaseDocument(object):
-	ignore_in_setter = ("doctype", "_meta", "meta", "_table_fields", "_valid_columns")
+	_reserved_keywords = {
+		"doctype",
+		"meta",
+		"_meta",
+		"flags",
+		"parent_doc",
+		"_table_fields",
+		"_valid_columns",
+		"_doc_before_save",
+		"_reserved_keywords",
+		"dont_update_if_missing",
+	}
 
 	def __init__(self, d):
 		if d.get("doctype"):
@@ -170,7 +181,7 @@ class BaseDocument(object):
 		return self.get(key, filters=filters, limit=1)[0]
 
 	def set(self, key, value, as_value=False):
-		if key in self.ignore_in_setter:
+		if key in self._reserved_keywords:
 			return
 
 		if isinstance(value, list) and not as_value:
@@ -853,8 +864,14 @@ class BaseDocument(object):
 
 				if self_value != db_value:
 					frappe.throw(
-						_("Not allowed to change {0} after submission").format(df.label),
+						_("{0} Not allowed to change {1} after submission from {2} to {3}").format(
+							f"Row #{self.idx}:" if self.get("parent") else "",
+							frappe.bold(_(df.label)),
+							frappe.bold(db_value),
+							frappe.bold(self_value),
+						),
 						frappe.UpdateAfterSubmitError,
+						title=_("Cannot Update After Submit"),
 					)
 
 	def _sanitize_content(self):

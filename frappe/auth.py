@@ -8,7 +8,6 @@ import frappe.utils
 import frappe.utils.user
 from frappe import _, conf
 from frappe.core.doctype.activity_log.activity_log import add_authentication_log
-from frappe.modules.patch_handler import check_session_stopped
 from frappe.sessions import Session, clear_sessions, delete_session
 from frappe.translate import get_language
 from frappe.twofactor import (
@@ -44,9 +43,6 @@ class HTTPRequest:
 
 		# write out latest cookies
 		frappe.local.cookie_manager.init_cookies()
-
-		# check session status
-		check_session_stopped()
 
 	@property
 	def domain(self):
@@ -241,10 +237,11 @@ class LoginManager:
 		if not (user and pwd):
 			self.fail(_("Incomplete login details"), user=user)
 
+		_raw_user_name = user
 		user = User.find_by_credentials(user, pwd)
 
 		if not user:
-			self.fail("Invalid login credentials")
+			self.fail("Invalid login credentials", user=_raw_user_name)
 
 		# Current login flow uses cached credentials for authentication while checking OTP.
 		# Incase of OTP check, tracker for auth needs to be disabled(If not, it can remove tracker history as it is going to succeed anyway)

@@ -68,11 +68,9 @@ $.extend(frappe.model, {
 				}
 			}
 		});
-
 		frappe.realtime.on("list_update", function(data) {
 			frappe.views.ListView.trigger_list_update(data);
 		});
-
 	},
 
 	is_value_type: function(fieldtype) {
@@ -588,8 +586,10 @@ $.extend(frappe.model, {
 					doctype: doctype,
 					name: docname
 				},
-				callback: function(r, rt) {
-					if(!r.exc) {
+				freeze: true,
+				freeze_message: __("Deleting {0}...", [title]),
+				callback: function (r, rt) {
+					if (!r.exc) {
 						frappe.utils.play_sound("delete");
 						frappe.model.clear_doc(doctype, docname);
 						if(callback) callback(r,rt);

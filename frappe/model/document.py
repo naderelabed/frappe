@@ -179,6 +179,7 @@ class Document(BaseDocument):
 				{"parent": self.name, "parenttype": self.doctype, "parentfield": df.fieldname},
 				"*",
 				as_dict=True,
+				for_update=self.flags.for_update,
 				order_by="idx asc",
 			)
 			if children:
@@ -191,9 +192,10 @@ class Document(BaseDocument):
 			self.__setup__()
 
 	def get_latest(self):
-		if not getattr(self, "latest", None):
-			self.latest = frappe.get_doc(self.doctype, self.name)
-		return self.latest
+		if not getattr(self, "_doc_before_save", None):
+			self.load_doc_before_save()
+
+		return self._doc_before_save
 
 	def check_permission(self, permtype="read", permlevel=None):
 		"""Raise `frappe.PermissionError` if not permitted"""
@@ -1105,8 +1107,6 @@ class Document(BaseDocument):
 
 		if (self.doctype, self.name) in frappe.flags.currently_saving:
 			frappe.flags.currently_saving.remove((self.doctype, self.name))
-
-		self.latest = None
 
 	def clear_cache(self):
 		frappe.clear_document_cache(self.doctype, self.name)
