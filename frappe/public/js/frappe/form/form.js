@@ -13,7 +13,6 @@ import "./script_helpers";
 import "./sidebar/form_sidebar";
 import "./footer/footer";
 import "./form_tour";
-import "./form_editor";
 import { UndoManager } from "./undo_manager";
 
 frappe.ui.form.Controller = class FormController {
@@ -261,10 +260,6 @@ frappe.ui.form.Form = class FrappeForm {
 		this.dashboard = new frappe.ui.form.Dashboard(dashboard_parent, this);
 
 		this.tour = new frappe.ui.form.FormTour({
-			frm: this,
-		});
-
-		this.form_editor = new frappe.ui.form.FormEditor({
 			frm: this,
 		});
 
@@ -625,10 +620,6 @@ frappe.ui.form.Form = class FrappeForm {
 		}
 
 		this.$wrapper.trigger("render_complete");
-
-		if (!this.hidden) {
-			this.layout.show_empty_form_message();
-		}
 
 		frappe.after_ajax(() => {
 			$(document).ready(() => {
@@ -1525,7 +1516,7 @@ frappe.ui.form.Form = class FrappeForm {
 				if (this.fields_dict[fieldname].grid.grid_rows_by_docname[table_row_name]) {
 					this.fields_dict[fieldname].grid.grid_rows_by_docname[
 						table_row_name
-					].refresh_field(fieldname);
+					].refresh_field(table_field);
 				}
 			} else {
 				this.refresh_field(fieldname);
@@ -1750,7 +1741,7 @@ frappe.ui.form.Form = class FrappeForm {
 		if (this.meta.title_field) {
 			return this.doc[this.meta.title_field];
 		} else {
-			return this.doc.name;
+			return String(this.doc.name);
 		}
 	}
 
@@ -1942,19 +1933,28 @@ frappe.ui.form.Form = class FrappeForm {
 	setup_docinfo_change_listener() {
 		let doctype = this.doctype;
 		let docname = this.docname;
-		let listener_name = `update_docinfo_for_${doctype}_${docname}`;
-		// to avoid duplicates
-		frappe.realtime.off(listener_name);
-		frappe.realtime.on(listener_name, ({ doc, key, action = "update" }) => {
-			let doc_list = frappe.model.docinfo[doctype][docname][key] || [];
-			if (action === "add") {
-				frappe.model.docinfo[doctype][docname][key].push(doc);
-			}
 
+		if (this.doc && !this.is_new()) {
+			frappe.socketio.doc_subscribe(doctype, docname);
+		}
+		frappe.realtime.off("docinfo_update");
+		frappe.realtime.on("docinfo_update", ({ doc, key, action = "update" }) => {
+			if (
+				!doc.reference_doctype ||
+				!doc.reference_name ||
+				doc.reference_doctype !== doctype ||
+				doc.reference_name !== docname
+			) {
+				return;
+			}
+			let doc_list = frappe.model.docinfo[doctype][docname][key] || [];
 			let docindex = doc_list.findIndex((old_doc) => {
 				return old_doc.name === doc.name;
 			});
 
+			if (action === "add") {
+				frappe.model.docinfo[doctype][docname][key].push(doc);
+			}
 			if (docindex > -1) {
 				if (action === "update") {
 					frappe.model.docinfo[doctype][docname][key].splice(docindex, 1, doc);
@@ -2049,16 +2049,12 @@ frappe.ui.form.Form = class FrappeForm {
 				this.doc.docstatus === 0
 			)
 		) {
-			if (wrapper.length) {
-				wrapper.hide();
-				wrapper.html("");
-			}
-
+			wrapper.length && wrapper.remove();
 			return;
 		}
 
 		if (!wrapper.length) {
-			wrapper = $('<div class="submission-queue-banner form-message yellow">');
+			wrapper = $('<div class="submission-queue-banner form-message">');
 			this.layout.wrapper.prepend(wrapper);
 		}
 
@@ -2068,49 +2064,40 @@ frappe.ui.form.Form = class FrappeForm {
 				args: { doctype: this.doctype, docname: this.docname },
 			})
 			.then((r) => {
-				if (r.message.latest_submission) {
+				if (r.message?.latest_submission) {
 					// if we are here that means some submission(s) were queued and are in queued/failed state
-					let col_width = 4;
-					let failed_link = "";
 					let submission_label = __("Previous Submission");
+					let secondary = "";
+					let div_class = "col-md-12";
 
-					if (r.message.latest_failed_submission) {
-						if (r.message.latest_failed_submission !== r.message.latest_submission) {
-							col_width = 3;
-							failed_link = `<div class="col-md-3">
-								<a href='/app/submission-queue/${r.message.latest_failed_submission}'>${__(
-								"Previous Falied Submission"
-							)}</a>
-							</div>`;
-						} else {
-							submission_label = __("Previous Falied Submission");
-						}
+					if (r.message.exc) {
+						secondary = `: <span>${r.message.exc}</span>`;
+					} else {
+						div_class = "col-md-6";
+						secondary = `
+						</div>
+						<div class="col-md-6">
+							<a href='/app/submission-queue?ref_doctype=${encodeURIComponent(
+								this.doctype
+							)}&ref_docname=${encodeURIComponent(this.docname)}'>${__(
+							"All Submissions"
+						)}</a>
+						`;
 					}
 
 					let html = `
-				<div class="row">
-					<div class="col-md-${col_width}">
-						<strong>${__("Submission Status:")}</strong>
+					<div class="row">
+						<div class="${div_class}">
+							<a href='/app/submission-queue/${r.message.latest_submission}'>${submission_label} (${r.message.status})</a>${secondary}
+						</div>
 					</div>
-					<div class="col-md-${col_width}">
-						<a href='/app/submission-queue/${r.message.latest_submission}'>${submission_label}</a>
-					</div>
-					${failed_link}
-					<div class="col-md-${col_width}">
-						<a href='/app/submission-queue?ref_doctype=${encodeURIComponent(
-							this.doctype
-						)}&ref_docname=${encodeURIComponent(this.docname)}'>${__(
-						"All Submissions"
-					)}</a>
-					</div>
-				</div>
-				`;
+					`;
 
-					wrapper.show();
+					wrapper.removeClass("red").removeClass("yellow");
+					wrapper.addClass(r.message.status == "Failed" ? "red" : "yellow");
 					wrapper.html(html);
 				} else {
-					wrapper.hide();
-					wrapper.html("");
+					wrapper.remove();
 				}
 			});
 	}

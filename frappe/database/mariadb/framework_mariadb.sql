@@ -116,6 +116,7 @@ CREATE TABLE `tabDocPerm` (
 -- Table structure for table `tabDocType Action`
 --
 
+DROP TABLE IF EXISTS `tabDocType Action`;
 CREATE TABLE `tabDocType Action` (
   `name` varchar(140) COLLATE utf8mb4_unicode_ci NOT NULL,
   `creation` datetime(6) DEFAULT NULL,
@@ -137,9 +138,10 @@ CREATE TABLE `tabDocType Action` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
 --
--- Table structure for table `tabDocType Action`
+-- Table structure for table `tabDocType Link`
 --
 
+DROP TABLE IF EXISTS `tabDocType Link`;
 CREATE TABLE `tabDocType Link` (
   `name` varchar(140) COLLATE utf8mb4_unicode_ci NOT NULL,
   `creation` datetime(6) DEFAULT NULL,
@@ -252,7 +254,6 @@ CREATE TABLE `tabSessions` (
   `sessiondata` longtext,
   `ipaddress` varchar(16) DEFAULT NULL,
   `lastupdate` datetime(6) DEFAULT NULL,
-  `device` varchar(255) DEFAULT 'desktop',
   `status` varchar(20) DEFAULT NULL,
   KEY `sid` (`sid`)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

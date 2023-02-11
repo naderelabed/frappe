@@ -12,7 +12,8 @@ export default class GridRow {
 		this.make();
 	}
 	make() {
-		var me = this;
+		let me = this;
+		let render_row = true;
 
 		this.wrapper = $('<div class="grid-row"></div>');
 		this.row = $('<div class="data-row row"></div>')
@@ -36,8 +37,10 @@ export default class GridRow {
 		if (this.grid.template && !this.grid.meta.editable_grid) {
 			this.render_template();
 		} else {
-			this.render_row();
+			render_row = this.render_row();
 		}
+
+		if (!this.render_row) return;
 
 		this.set_data();
 		this.wrapper.appendTo(this.parent);
@@ -312,6 +315,8 @@ export default class GridRow {
 		if (this.frm && this.doc) {
 			$(this.frm.wrapper).trigger("grid-row-render", [this]);
 		}
+
+		return true;
 	}
 
 	make_editable() {
@@ -649,13 +654,19 @@ export default class GridRow {
 		this.search_columns = {};
 
 		this.grid.setup_visible_columns();
+		let fields =
+			this.grid.user_defined_columns && this.grid.user_defined_columns.length > 0
+				? this.grid.user_defined_columns
+				: this.docfields;
+
 		this.grid.visible_columns.forEach((col, ci) => {
 			// to get update df for the row
-			let df = this.docfields.find((field) => field.fieldname === col[0].fieldname);
+			let df = fields.find((field) => field?.fieldname === col[0].fieldname);
 
 			this.set_dependant_property(df);
 
 			let colsize = col[1];
+
 			let txt = this.doc
 				? frappe.format(this.doc[df.fieldname], df, null, this.doc)
 				: __(df.label);
@@ -751,11 +762,7 @@ export default class GridRow {
 
 	show_search_row() {
 		// show or remove search columns based on grid rows
-		this.show_search =
-			this.frm &&
-			this.frm.doc &&
-			this.frm.doc[this.grid.df.fieldname] &&
-			this.frm.doc[this.grid.df.fieldname].length >= 20;
+		this.show_search = this.show_search && this.grid?.data?.length >= 20;
 		!this.show_search && this.wrapper.remove();
 		return this.show_search;
 	}
@@ -1348,8 +1355,13 @@ export default class GridRow {
 		}
 	}
 	refresh_field(fieldname, txt) {
-		let df = this.docfields.find((col) => {
-			return col.fieldname === fieldname;
+		let fields =
+			this.grid.user_defined_columns && this.grid.user_defined_columns.length > 0
+				? this.grid.user_defined_columns
+				: this.docfields;
+
+		let df = fields.find((col) => {
+			return col?.fieldname === fieldname;
 		});
 
 		// format values if no frm

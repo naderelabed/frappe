@@ -152,7 +152,7 @@ def run_single(patchmodule=None, method=None, methodargs=None, force=False):
 		return True
 
 
-def execute_patch(patchmodule, method=None, methodargs=None):
+def execute_patch(patchmodule: str, method=None, methodargs=None):
 	"""execute the patch"""
 	_patch_mode(True)
 
@@ -162,7 +162,7 @@ def execute_patch(patchmodule, method=None, methodargs=None):
 		docstring = ""
 	else:
 		has_patch_file = True
-		patch = f"{patchmodule.split()[0]}.execute"
+		patch = f"{patchmodule.split(maxsplit=1)[0]}.execute"
 		_patch = frappe.get_attr(patch)
 		docstring = _patch.__doc__ or ""
 
@@ -173,7 +173,7 @@ def execute_patch(patchmodule, method=None, methodargs=None):
 		f"Executing {patchmodule or methodargs} in {frappe.local.site} ({frappe.db.cur_db_name}){docstring}"
 	)
 
-	start_time = time.time()
+	start_time = time.monotonic()
 	frappe.db.begin()
 	frappe.db.auto_commit_on_many_writes = 0
 	try:
@@ -197,7 +197,7 @@ def execute_patch(patchmodule, method=None, methodargs=None):
 
 	else:
 		frappe.db.commit()
-		end_time = time.time()
+		end_time = time.monotonic()
 		_patch_mode(False)
 		print(f"Success: Done in {round(end_time - start_time, 3)}s")
 
