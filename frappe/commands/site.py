@@ -9,7 +9,6 @@ import click
 # imports - module imports
 import frappe
 from frappe.commands import get_site, pass_context
-from frappe.core.doctype.log_settings.log_settings import LOG_DOCTYPES
 from frappe.exceptions import SiteNotSpecifiedError
 
 
@@ -44,7 +43,7 @@ from frappe.exceptions import SiteNotSpecifiedError
 @click.option(
 	"--force", help="Force restore if site/database already exists", is_flag=True, default=False
 )
-@click.option("--source_sql", help="Initiate database with a SQL file")
+@click.option("--source-sql", "--source_sql", help="Initiate database with a SQL file")
 @click.option("--install-app", multiple=True, help="Install app after installation")
 @click.option(
 	"--set-default", is_flag=True, default=False, help="Set the new site as default site"
@@ -67,9 +66,12 @@ def new_site(
 	set_default=False,
 ):
 	"Create a new site"
-	from frappe.installer import _new_site
+	from frappe.installer import _new_site, extract_sql_from_archive
 
 	frappe.init(site=site, new_site=True)
+
+	if source_sql:
+		source_sql = extract_sql_from_archive(source_sql)
 
 	_new_site(
 		db_name,
@@ -1196,11 +1198,12 @@ def build_search_index(context):
 
 
 @click.command("clear-log-table")
-@click.option("--doctype", required=True, type=click.Choice(LOG_DOCTYPES), help="Log DocType")
+@click.option("--doctype", required=True, type=str, help="Log DocType")
 @click.option("--days", type=int, help="Keep records for days")
 @click.option("--no-backup", is_flag=True, default=False, help="Do not backup the table")
 @pass_context
 def clear_log_table(context, doctype, days, no_backup):
+
 	"""If any logtype table grows too large then clearing it with DELETE query
 	is not feasible in reasonable time. This command copies recent data to new
 	table and replaces current table with new smaller table.
@@ -1208,6 +1211,7 @@ def clear_log_table(context, doctype, days, no_backup):
 
 	ref: https://mariadb.com/kb/en/big-deletes/#deleting-more-than-half-a-table
 	"""
+	from frappe.core.doctype.log_settings.log_settings import LOG_DOCTYPES
 	from frappe.core.doctype.log_settings.log_settings import clear_log_table as clear_logs
 	from frappe.utils.backups import scheduled_backup
 

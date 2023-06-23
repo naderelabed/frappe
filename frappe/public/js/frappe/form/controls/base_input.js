@@ -17,7 +17,7 @@ frappe.ui.form.ControlInput = class ControlInput extends frappe.ui.form.Control 
 				<div class="form-group">
 					<div class="clearfix">
 						<label class="control-label" style="padding-right: 0px;"></label>
-						<span class="ml-1 help"></span>
+						<span class="help"></span>
 					</div>
 					<div class="control-input-wrapper">
 						<div class="control-input"></div>
@@ -178,7 +178,7 @@ frappe.ui.form.ControlInput = class ControlInput extends frappe.ui.form.Control 
 
 		let $help = this.$wrapper.find("span.help");
 		$help.empty();
-		$(`<a href="${this.df.documentation_url}" target="_blank">
+		$(`<a href="${this.df.documentation_url}" target="_blank" title="${__("Documentation")}">
 			${frappe.utils.icon("help", "sm")}
 		</a>`).appendTo($help);
 	}

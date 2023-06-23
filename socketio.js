@@ -68,6 +68,10 @@ io.on("connection", function (socket) {
 		});
 	});
 
+	socket.on("doctype_unsubscribe", function (doctype) {
+		socket.leave(get_doctype_room(socket, doctype));
+	});
+
 	socket.on("task_subscribe", function (task_id) {
 		var room = get_task_room(socket, task_id);
 		socket.join(room);
@@ -177,7 +181,7 @@ io.on("connection", function (socket) {
 	});
 
 	socket.on("open_in_editor", (data) => {
-		let s = get_redis_subscriber("redis_socketio");
+		let s = get_redis_subscriber("redis_queue");
 		s.publish("open_in_editor", JSON.stringify(data));
 	});
 });

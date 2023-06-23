@@ -19,7 +19,6 @@ import frappe.recorder
 import frappe.utils.response
 from frappe import _
 from frappe.auth import SAFE_HTTP_METHODS, UNSAFE_HTTP_METHODS, HTTPRequest
-from frappe.core.doctype.comment.comment import update_comments_in_parent_after_request
 from frappe.middlewares import StaticDataMiddleware
 from frappe.utils import cint, get_site_name, sanitize_html
 from frappe.utils.error import make_error_snapshot
@@ -41,9 +40,6 @@ def application(request: Request):
 
 		init_request(request)
 
-		frappe.recorder.record()
-		frappe.monitor.start()
-		frappe.rate_limiter.apply()
 		frappe.api.validate_auth()
 
 		if request.method == "OPTIONS":
@@ -74,15 +70,21 @@ def application(request: Request):
 		response = handle_exception(e)
 
 	else:
-		rollback = after_request(rollback)
+		rollback = sync_database(rollback)
 
 	finally:
+		# Important note:
+		# this function *must* always return a response, hence any exception thrown outside of
+		# try..catch block like this finally block needs to be handled appropriately.
+
 		if request.method in UNSAFE_HTTP_METHODS and frappe.db and rollback:
 			frappe.db.rollback()
 
-		frappe.rate_limiter.update()
-		frappe.monitor.stop(response)
-		frappe.recorder.dump()
+		try:
+			run_after_request_hooks(request, response)
+		except Exception as e:
+			# We can not handle exceptions safely here.
+			frappe.logger().error("Failed to run after request hook", exc_info=True)
 
 		log_request(request, response)
 		process_response(response)
@@ -92,12 +94,20 @@ def application(request: Request):
 	return response
 
 
+def run_after_request_hooks(request, response):
+	if not getattr(frappe.local, "initialised", False):
+		return
+
+	for after_request_task in frappe.get_hooks("after_request"):
+		frappe.call(after_request_task, response=response, request=request)
+
+
 def init_request(request):
 	frappe.local.request = request
 	frappe.local.is_ajax = frappe.get_request_header("X-Requested-With") == "XMLHttpRequest"
 
 	site = _site or request.headers.get("X-Frappe-Site-Name") or get_site_name(request.host)
-	frappe.init(site=site, sites_path=_sites_path)
+	frappe.init(site=site, sites_path=_sites_path, force=True)
 
 	if not (frappe.local.conf and frappe.local.conf.db_name):
 		# site does not exist
@@ -118,6 +128,9 @@ def init_request(request):
 
 	if request.method != "OPTIONS":
 		frappe.local.http_request = HTTPRequest()
+
+	for before_request_task in frappe.get_hooks("before_request"):
+		frappe.call(before_request_task)
 
 
 def setup_read_only_mode():
@@ -144,6 +157,8 @@ def log_request(request, response):
 			{
 				"site": get_site_name(request.host),
 				"remote_addr": getattr(request, "remote_addr", "NOTFOUND"),
+				"pid": os.getpid(),
+				"user": getattr(frappe.local.session, "user", "NOTFOUND"),
 				"base_url": getattr(request, "base_url", "NOTFOUND"),
 				"full_path": getattr(request, "full_path", "NOTFOUND"),
 				"method": getattr(request, "method", "NOTFOUND"),
@@ -318,7 +333,7 @@ def handle_exception(e):
 	return response
 
 
-def after_request(rollback):
+def sync_database(rollback: bool) -> bool:
 	# if HTTP method would change server state, commit if necessary
 	if (
 		frappe.db
@@ -332,13 +347,10 @@ def after_request(rollback):
 		rollback = False
 
 	# update session
-	if getattr(frappe.local, "session_obj", None):
-		updated_in_db = frappe.local.session_obj.update()
-		if updated_in_db:
+	if session := getattr(frappe.local, "session_obj", None):
+		if session.update():
 			frappe.db.commit()
 			rollback = False
-
-	update_comments_in_parent_after_request()
 
 	return rollback
 
@@ -376,6 +388,7 @@ def serve(
 		"0.0.0.0",
 		int(port),
 		application,
+		exclude_patterns=["test_*"],
 		use_reloader=False if in_test_env else not no_reload,
 		use_debugger=not in_test_env,
 		use_evalex=not in_test_env,

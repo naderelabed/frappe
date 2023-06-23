@@ -62,8 +62,8 @@ def get_roles_and_doctypes():
 	roles_list = [{"label": _(d.get("name")), "value": d.get("name")} for d in roles]
 
 	return {
-		"doctypes": sorted(doctypes_list, key=lambda d: d["label"]),
-		"roles": sorted(roles_list, key=lambda d: d["label"]),
+		"doctypes": sorted(doctypes_list, key=lambda d: d["label"].casefold()),
+		"roles": sorted(roles_list, key=lambda d: d["label"].casefold()),
 	}
 
 
@@ -123,8 +123,15 @@ def update(doctype, role, permlevel, ptype, value=None):
 	Returns:
 	        str: Refresh flag is permission is updated successfully
 	"""
+
+	def clear_cache():
+		frappe.clear_cache(doctype=doctype)
+
 	frappe.only_for("System Manager")
 	out = update_permission_property(doctype, role, permlevel, ptype, value)
+
+	frappe.db.after_commit.add(clear_cache)
+
 	return "refresh" if out else None
 
 

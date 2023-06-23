@@ -26,13 +26,13 @@ context("Form Builder", () => {
 		cy.get(".page-title").click();
 
 		cy.get(".frappe-control[data-fieldname='doctype'] input").click().as("input");
-		cy.get("@input").type("{rightArrow} Field", { delay: 200 });
+		cy.get("@input").type("{rightArrow}Web Form Field", { delay: 200 });
 		cy.wait("@search_link");
 		cy.get("@input").type("{enter}").blur();
 
-		cy.click_modal_primary_button("Change");
+		cy.click_modal_primary_button("Edit");
 
-		cy.get(".page-title .title-text").should("have.text", "Form Builder: Web Form Field");
+		cy.get(".page-title .title-text").should("have.text", "Web Form Field");
 	});
 
 	it("Save without change, check form dirty and reset changes", () => {
@@ -272,5 +272,30 @@ context("Form Builder", () => {
 		cy.get_open_dialog()
 			.find(".msgprint")
 			.should("contain", "cannot be hidden and mandatory without any default value");
+	});
+
+	it("Undo/Redo", () => {
+		cy.visit(`/app/form-builder/${doctype_name}`);
+
+		// click on second tab
+		cy.get(".tabs .tab:last").click();
+
+		let first_column = ".tab-content.active .section-columns-container:first .column:first";
+		let first_field = first_column + " .field:first";
+		let label = "div[title='Double click to edit label'] span:first";
+
+		// drag the first field to second position
+		cy.get(first_field).drag(first_column + " .field:nth-child(2)", {
+			target: { x: 100, y: 10 },
+		});
+		cy.get(first_field).find(label).should("have.text", "Check");
+
+		// undo
+		cy.get("body").type("{ctrl}z");
+		cy.get(first_field).find(label).should("have.text", "Data");
+
+		// redo
+		cy.get("body").type("{ctrl}{shift}z");
+		cy.get(first_field).find(label).should("have.text", "Check");
 	});
 });

@@ -2,6 +2,7 @@
 // MIT License. See license.txt
 import "./linked_with";
 import "./form_viewers";
+import { ReminderManager } from "./reminders";
 
 frappe.ui.form.Toolbar = class Toolbar {
 	constructor(opts) {
@@ -108,6 +109,7 @@ frappe.ui.form.Toolbar = class Toolbar {
 		}
 
 		let rename_document = () => {
+			if (input_name != docname) frappe.socketio.doctype_subscribe(doctype, input_name);
 			return frappe
 				.xcall("frappe.model.rename_doc.update_document_title", {
 					doctype,
@@ -128,9 +130,8 @@ frappe.ui.form.Toolbar = class Toolbar {
 					};
 
 					// handle document renaming queued action
-					if (input_name && new_docname == docname) {
-						frappe.socketio.doc_subscribe(doctype, input_name);
-						frappe.realtime.on("doc_update", (data) => {
+					if (input_name != docname) {
+						frappe.realtime.on("list_update", (data) => {
 							if (data.doctype == doctype && data.name == input_name) {
 								reload_form(input_name);
 								frappe.show_alert({
@@ -421,6 +422,7 @@ frappe.ui.form.Toolbar = class Toolbar {
 		if (
 			cint(me.frm.doc.docstatus) != 1 &&
 			!me.frm.doc.__islocal &&
+			!frappe.model.is_single(me.frm.doctype) &&
 			frappe.model.can_delete(me.frm.doctype)
 		) {
 			this.page.add_menu_item(
@@ -435,6 +437,19 @@ frappe.ui.form.Toolbar = class Toolbar {
 				}
 			);
 		}
+
+		this.page.add_menu_item(
+			__("Remind Me"),
+			() => {
+				let reminder_maanger = new ReminderManager({ frm: this.frm });
+				reminder_maanger.show();
+			},
+			true,
+			{
+				shortcut: "Shift+R",
+				condition: () => !this.frm.is_new(),
+			}
+		);
 
 		this.make_customize_buttons();
 

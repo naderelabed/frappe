@@ -30,6 +30,7 @@ frappe.ui.Filter = class {
 
 		this.nested_set_conditions = [
 			["descendants of", __("Descendants Of")],
+			["descendants of (inclusive)", __("Descendants Of (inclusive)")],
 			["not descendants of", __("Not Descendants Of")],
 			["ancestors of", __("Ancestors Of")],
 			["not ancestors of", __("Not Ancestors Of")],
@@ -47,6 +48,8 @@ frappe.ui.Filter = class {
 			Color: ["Between", "Timespan"],
 			Check: this.conditions.map((c) => c[0]).filter((c) => c !== "="),
 			Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+			"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+			"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
 			Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
 			Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
 		};
@@ -506,6 +509,7 @@ frappe.ui.filter_utils = {
 				"HTML Editor",
 				"Tag",
 				"Phone",
+				"JSON",
 				"Comments",
 				"Barcode",
 				"Dynamic Link",
@@ -521,6 +525,7 @@ frappe.ui.filter_utils = {
 				"=",
 				"!=",
 				"descendants of",
+				"descendants of (inclusive)",
 				"ancestors of",
 				"not descendants of",
 				"not ancestors of",

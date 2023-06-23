@@ -406,7 +406,10 @@ frappe.ui.form.Form = class FrappeForm {
 
 			// read only (workflow)
 			this.read_only = frappe.workflow.is_read_only(this.doctype, this.docname);
-			if (this.read_only) this.set_read_only(true);
+			if (this.read_only) {
+				this.set_read_only(true);
+				frappe.show_alert(__("This form is not editable due to a Workflow."));
+			}
 
 			// check if doctype is already open
 			if (!this.opendocs[this.docname]) {
@@ -903,13 +906,13 @@ frappe.ui.form.Form = class FrappeForm {
 					.filter((link) => link.doctype == doctype)
 					.map((link) => frappe.utils.get_form_link(link.doctype, link.name, true))
 					.join(", ");
-				links_text += `<li><strong>${doctype}</strong>: ${docnames}</li>`;
+				links_text += `<li><strong>${__(doctype)}</strong>: ${docnames}</li>`;
 			}
 		}
 		links_text = `<ul>${links_text}</ul>`;
 
 		let confirm_message = __("{0} {1} is linked with the following submitted documents: {2}", [
-			me.doc.doctype.bold(),
+			__(me.doc.doctype).bold(),
 			me.doc.name,
 			links_text,
 		]);
@@ -937,7 +940,7 @@ frappe.ui.form.Form = class FrappeForm {
 
 		// if user can cancel all linked docs, add action to the dialog
 		if (can_cancel) {
-			d.set_primary_action("Cancel All", () => {
+			d.set_primary_action(__("Cancel All"), () => {
 				d.hide();
 				frappe.call({
 					method: "frappe.desk.form.linked_with.cancel_all_linked_docs",
@@ -1411,8 +1414,13 @@ frappe.ui.form.Form = class FrappeForm {
 			if (selector.length) {
 				frappe.utils.scroll_to(selector);
 			}
-		} else if (window.location.hash && $(window.location.hash).length) {
-			frappe.utils.scroll_to(window.location.hash, true, 200, null, null, true);
+		} else if (window.location.hash) {
+			if ($(window.location.hash).length) {
+				frappe.utils.scroll_to(window.location.hash, true, 200, null, null, true);
+			} else {
+				this.scroll_to_field(window.location.hash.replace("#", "")) &&
+					history.replaceState(null, null, " ");
+			}
 		}
 	}
 
@@ -1923,11 +1931,12 @@ frappe.ui.form.Form = class FrappeForm {
 		}
 
 		// highlight control inside field
-		let control_element = $el.find(".form-control");
+		let control_element = $el.closest(".frappe-control");
 		control_element.addClass("highlight");
 		setTimeout(() => {
 			control_element.removeClass("highlight");
 		}, 2000);
+		return true;
 	}
 
 	setup_docinfo_change_listener() {
@@ -1991,7 +2000,8 @@ frappe.ui.form.Form = class FrappeForm {
 		return new Promise((resolve) => {
 			frappe.model.with_doctype(reference_doctype, () => {
 				frappe.get_meta(reference_doctype).fields.map((df) => {
-					filter_function(df) && options.push({ label: df.label, value: df.fieldname });
+					filter_function(df) &&
+						options.push({ label: df.label || df.fieldname, value: df.fieldname });
 				});
 				options &&
 					this.set_df_property(
@@ -2104,19 +2114,3 @@ frappe.ui.form.Form = class FrappeForm {
 };
 
 frappe.validated = 0;
-// Proxy for frappe.validated
-Object.defineProperty(window, "validated", {
-	get: function () {
-		console.warn(
-			"Please use `frappe.validated` instead of `validated`. It will be deprecated soon."
-		); // eslint-disable-line
-		return frappe.validated;
-	},
-	set: function (value) {
-		console.warn(
-			"Please use `frappe.validated` instead of `validated`. It will be deprecated soon."
-		); // eslint-disable-line
-		frappe.validated = value;
-		return frappe.validated;
-	},
-});
