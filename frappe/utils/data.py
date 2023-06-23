@@ -1335,15 +1335,15 @@ def pretty_date(iso_datetime):
 		return _("Yesterday")
 	elif dt_diff_days < 7.0:
 		return _("{0} days ago").format(cint(dt_diff_days))
-	elif dt_diff_days < 12:
+	elif dt_diff_days < 14:
 		return _("1 week ago")
 	elif dt_diff_days < 31.0:
-		return _("{0} weeks ago").format(cint(math.ceil(dt_diff_days / 7.0)))
-	elif dt_diff_days < 46:
+		return _("{0} weeks ago").format(dt_diff_days // 7)
+	elif dt_diff_days < 61.0:
 		return _("1 month ago")
 	elif dt_diff_days < 365.0:
-		return _("{0} months ago").format(cint(math.ceil(dt_diff_days / 30.0)))
-	elif dt_diff_days < 550.0:
+		return _("{0} months ago").format(dt_diff_days // 30)
+	elif dt_diff_days < 730.0:
 		return _("1 year ago")
 	else:
 		return "{0} years ago".format(cint(math.floor(dt_diff_days / 365.0)))
@@ -1530,14 +1530,14 @@ operator_map = {
 	"in": lambda a, b: operator.contains(b, a),
 	"not in": lambda a, b: not operator.contains(b, a),
 	# comparison operators
-	"=": lambda a, b: operator.eq(a, b),
-	"!=": lambda a, b: operator.ne(a, b),
-	">": lambda a, b: operator.gt(a, b),
-	"<": lambda a, b: operator.lt(a, b),
-	">=": lambda a, b: operator.ge(a, b),
-	"<=": lambda a, b: operator.le(a, b),
-	"not None": lambda a, b: a and True or False,
-	"None": lambda a, b: (not a) and True or False,
+	"=": operator.eq,
+	"!=": operator.ne,
+	">": operator.gt,
+	"<": operator.lt,
+	">=": operator.ge,
+	"<=": operator.le,
+	"not None": lambda a, b: a is not None,
+	"None": lambda a, b: a is None,
 }
 
 
@@ -1561,6 +1561,7 @@ def evaluate_filters(doc, filters: Union[Dict, List, Tuple]):
 def compare(val1: Any, condition: str, val2: Any, fieldtype: Optional[str] = None):
 	ret = False
 	if fieldtype:
+		val1 = cast(fieldtype, val1)
 		val2 = cast(fieldtype, val2)
 	if condition in operator_map:
 		ret = operator_map[condition](val1, val2)

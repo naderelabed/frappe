@@ -327,7 +327,10 @@ frappe.ui.form.Form = class FrappeForm {
 
 			// read only (workflow)
 			this.read_only = frappe.workflow.is_read_only(this.doctype, this.docname);
-			if (this.read_only) this.set_read_only(true);
+			if (this.read_only) {
+				this.set_read_only(true);
+				frappe.show_alert(__("This form is not editable due to a Workflow."));
+			}
 
 			// check if doctype is already open
 			if (!this.opendocs[this.docname]) {
@@ -1765,7 +1768,9 @@ frappe.ui.form.Form = class FrappeForm {
 		let doctype = this.doctype;
 		let docname = this.docname;
 
-		frappe.socketio.doc_subscribe(doctype, docname);
+		if (this.doc && !this.is_new()) {
+			frappe.socketio.doc_subscribe(doctype, docname);
+		}
 		frappe.realtime.off("docinfo_update");
 		frappe.realtime.on("docinfo_update", ({ doc, key, action = "update" }) => {
 			if (
